@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stickman Adventure</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 3px 3px 5px rgba(0, 0, 0, 0.5);
+            background: linear-gradient(to right, #ff8a00, #da1b60);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        #game-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .game-ui {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+        }
+
+        .stat-box {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            border-radius: 10px;
+            min-width: 120px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        button {
+            background: linear-gradient(to right, #ff8a00, #da1b60);
+            border: none;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        #start-screen, #level-complete, #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 10;
+            border-radius: 15px;
+        }
+
+        #level-complete, #game-over {
+            display: none;
+        }
+
+        .screen-title {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            background: linear-gradient(to right, #00c9ff, #92fe9d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .level-info {
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+            max-width: 80%;
+            line-height: 1.5;
+        }
+
+        .instructions {
+            margin-top: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+
+        .instructions h3 {
+            margin-bottom: 10px;
+            color: #ff8a00;
+        }
+
+        .instructions p {
+            margin-bottom: 5px;
+        }
+
+        .level-indicator {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            z-index: 5;
+        }
+
+        .health-bar {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 150px;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            overflow: hidden;
+            z-index: 5;
+        }
+
+        .health-fill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(to right, #ff0000, #00ff00);
+            transition: width 0.3s ease;
+        }
+
+        footer {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Stickman Adventure</h1>
+        <p class="subtitle">Hadapi tantangan dan selesaikan semua level!</p>
+        
+        <div class="game-ui">
+            <div class="stats">
+                <div class="stat-box">
+                    <div>Level: <span id="level-display">1</span></div>
+                </div>
+                <div class="stat-box">
+                    <div>Skor: <span id="score-display">0</span></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="game-container">
+            <div class="level-indicator">Level <span id="level-number">1</span></div>
+            <div class="health-bar">
+                <div class="health-fill" id="health-fill"></div>
+            </div>
+            
+            <canvas id="game-canvas"></canvas>
+            
+            <div id="start-screen">
+                <h2 class="screen-title">Stickman Adventure</h2>
+                <p class="level-info">Kendalikan Stickman Anda, kumpulkan koin, hindari rintangan, dan kalahkan musuh!</p>
+                <button id="start-button">Mulai Petualangan</button>
+                
+                <div class="instructions">
+                    <h3>Cara Bermain:</h3>
+                    <p>• Gunakan tombol A dan D atau panah kiri-kanan untuk bergerak</p>
+                    <p>• Gunakan tombol W atau panah atas untuk melompat</p>
+                    <p>• Gunakan spasi untuk menyerang musuh</p>
+                    <p>• Kumpulkan koin untuk meningkatkan skor</p>
+                </div>
+            </div>
+            
+            <div id="level-complete">
+                <h2 class="screen-title">Level Selesai!</h2>
+                <p class="level-info">Selamat! Anda berhasil menyelesaikan level ini.</p>
+                <p class="level-info">Skor Anda: <span id="complete-score">0</span></p>
+                <button id="next-level-button">Lanjut ke Level Berikutnya</button>
+            </div>
+            
+            <div id="game-over">
+                <h2 class="screen-title">Game Over</h2>
+                <p class="level-info">Sayang sekali, Stickman Anda telah dikalahkan.</p>
+                <p class="level-info">Skor Akhir: <span id="final-score">0</span></p>
+                <button id="restart-button">Main Lagi</button>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="left-btn">Kiri (A)</button>
+            <button id="jump-btn">Lompat (W)</button>
+            <button id="right-btn">Kanan (D)</button>
+            <button id="attack-btn">Serang (Spasi)</button>
+        </div>
+        
+        <footer>
+            Stickman Adventure - Dibuat dengan ❤️ untuk petualangan seru
+        </footer>
+    </div>
+
+    <script>
+        // Inisialisasi canvas dan konteks
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+
+        // Elemen UI
+        const startScreen = document.getElementById('start-screen');
+        const levelCompleteScreen = document.getElementById('level-complete');
+        const gameOverScreen = document.getElementById('game-over');
+        const startButton = document.getElementById('start-button');
+        const nextLevelButton = document.getElementById('next-level-button');
+        const restartButton = document.getElementById('restart-button');
+        const levelDisplay = document.getElementById('level-display');
+        const levelNumber = document.getElementById('level-number');
+        const scoreDisplay = document.getElementById('score-display');
+        const completeScore = document.getElementById('complete-score');
+        const finalScore = document.getElementById('final-score');
+        const healthFill = document.getElementById('health-fill');
+        
+        // Tombol kontrol
+        const leftBtn = document.getElementById('left-btn');
+        const rightBtn = document.getElementById('right-btn');
+        const jumpBtn = document.getElementById('jump-btn');
+        const attackBtn = document.getElementById('attack-btn');
+
+        // Variabel game
+        let gameActive = false;
+        let currentLevel = 1;
+        let score = 0;
+        let playerHealth = 100;
+        let keys = {};
+        let gameObjects = [];
+        let platforms = [];
+        let enemies = [];
+        let coins = [];
+        let backgroundElements = [];
+        
+        // Konfigurasi level
+        const levelConfigs = {
+            1: {
+                platforms: [
+                    { x: 0, y: 350, width: 200, height: 20 },
+                    { x: 250, y: 300, width: 150, height: 20 },
+                    { x: 450, y: 250, width: 150, height: 20 },
+                    { x: 650, y: 350, width: 150, height: 20 }
+                ],
+                enemies: [
+                    { x: 300, y: 260, width: 30, height: 40, speed: 1, health: 2 }
+                ],
+                coins: [
+                    { x: 100, y: 320 },
+                    { x: 500, y: 220 },
+                    { x: 700, y: 320 }
+                ],
+                goal: { x: 750, y: 300, width: 50, height: 50 }
+            },
+            2: {
+                platforms: [
+                    { x: 0, y: 350, width: 150, height: 20 },
+                    { x: 200, y: 320, width: 100, height: 20 },
+                    { x: 350, y: 280, width: 100, height: 20 },
+                    { x: 500, y: 320, width: 100, height: 20 },
+                    { x: 650, y: 350, width: 150, height: 20 }
+                ],
+                enemies: [
+                    { x: 220, y: 280, width: 30, height: 40, speed: 1.5, health: 2 },
+                    { x: 520, y: 280, width: 30, height: 40, speed: 1.2, health: 3 }
+                ],
+                coins: [
+                    { x: 50, y: 320 },
+                    { x: 250, y: 290 },
+                    { x: 400, y: 250 },
+                    { x: 550, y: 290 },
+                    { x: 700, y: 320 }
+                ],
+                goal: { x: 750, y: 300, width: 50, height: 50 }
+            },
+            3: {
+                platforms: [
+                    { x: 0, y: 350, width: 100, height: 20 },
+                    { x: 150, y: 320, width: 80, height: 20 },
+                    { x: 280, y: 290, width: 80, height: 20 },
+                    { x: 410, y: 260, width: 80, height: 20 },
+                    { x: 540, y: 290, width: 80, height: 20 },
+                    { x: 670, y: 320, width: 80, height: 20 },
+                    { x: 720, y: 350, width: 80, height: 20 }
+                ],
+                enemies: [
+                    { x: 170, y: 280, width: 30, height: 40, speed: 2, health: 2 },
+                    { x: 430, y: 220, width: 30, height: 40, speed: 1.8, health: 3 },
+                    { x: 690, y: 280, width: 30, height: 40, speed: 1.5, health: 4 }
+                ],
+                coins: [
+                    { x: 50, y: 320 },
+                    { x: 190, y: 290 },
+                    { x: 320, y: 260 },
+                    { x: 450, y: 230 },
+                    { x: 580, y: 260 },
+                    { x: 710, y: 290 }
+                ],
+                goal: { x: 750, y: 300, width: 50, height: 50 }
+            }
+        };
+
+        // Kelas Player
+        class Player {
+            constructor() {
+                this.width = 30;
+                this.height = 50;
+                this.x = 50;
+                this.y = 300;
+                this.velocityY = 0;
+                this.velocityX = 0;
+                this.speed = 5;
+                this.jumpPower = 12;
+                this.isJumping = false;
+                this.isAttacking = false;
+                this.attackCooldown = 0;
+                this.facing = 'right';
+                this.color = '#3498db';
+            }
+
+            update() {
+                // Gerakan horizontal
+                if (keys['ArrowLeft'] || keys['KeyA'] || leftBtn.pressed) {
+                    this.velocityX = -this.speed;
+                    this.facing = 'left';
+                } else if (keys['ArrowRight'] || keys['KeyD'] || rightBtn.pressed) {
+                    this.velocityX = this.speed;
+                    this.facing = 'right';
+                } else {
+                    this.velocityX = 0;
+                }
+
+                // Lompat
+                if ((keys['ArrowUp'] || keys['KeyW'] || keys['Space'] || jumpBtn.pressed) && !this.isJumping) {
+                    this.velocityY = -this.jumpPower;
+                    this.isJumping = true;
+                }
+
+                // Serang
+                if ((keys['Space'] || attackBtn.pressed) && this.attackCooldown <= 0) {
+                    this.isAttacking = true;
+                    this.attackCooldown = 20;
+                    
+                    // Deteksi tabrakan dengan musuh saat menyerang
+                    enemies.forEach(enemy => {
+                        const attackRange = this.facing === 'right' ? 
+                            { x: this.x + this.width, y: this.y, width: 40, height: this.height } :
+                            { x: this.x - 40, y: this.y, width: 40, height: this.height };
+                            
+                        if (this.checkCollision(attackRange, enemy)) {
+                            enemy.takeDamage(1);
+                            if (enemy.health <= 0) {
+                                score += 50;
+                                updateScore();
+                            }
+                        }
+                    });
+                }
+
+                // Cooldown serangan
+                if (this.attackCooldown > 0) {
+                    this.attackCooldown--;
+                } else {
+                    this.isAttacking = false;
+                }
+
+                // Gravitasi
+                this.velocityY += 0.5;
+                this.y += this.velocityY;
+
+                // Batas layar
+                if (this.x < 0) this.x = 0;
+                if (this.x + this.width > canvas.width) this.x = canvas.width - this.width;
+                if (this.y > canvas.height) {
+                    playerHealth = 0;
+                    updateHealth();
+                }
+
+                // Tabrakan dengan platform
+                let onPlatform = false;
+                platforms.forEach(platform => {
+                    if (this.velocityY > 0 &&
+                        this.y + this.height > platform.y &&
+                        this.y + this.height < platform.y + 10 &&
+                        this.x + this.width > platform.x &&
+                        this.x < platform.x + platform.width) {
+                        this.y = platform.y - this.height;
+                        this.velocityY = 0;
+                        this.isJumping = false;
+                        onPlatform = true;
+                    }
+                });
+
+                // Jika tidak di platform, set jumping
+                if (!onPlatform && this.velocityY !== 0) {
+                    this.isJumping = true;
+                }
+
+                // Gerakan horizontal setelah pengecekan tabrakan vertikal
+                this.x += this.velocityX;
+
+                // Tabrakan dengan musuh
+                enemies.forEach(enemy => {
+                    if (this.checkCollision(this, enemy) && !this.isAttacking) {
+                        playerHealth -= 0.5;
+                        updateHealth();
+                        
+                        // Dorong player saat terkena musuh
+                        if (this.x < enemy.x) {
+                            this.x -= 10;
+                        } else {
+                            this.x += 10;
+                        }
+                    }
+                });
+
+                // Kumpulkan koin
+                coins.forEach((coin, index) => {
+                    if (this.checkCollision(this, coin)) {
+                        coins.splice(index, 1);
+                        score += 10;
+                        updateScore();
+                    }
+                });
+
+                // Cek apakah mencapai goal
+                const goal = levelConfigs[currentLevel].goal;
+                if (this.checkCollision(this, goal)) {
+                    completeLevel();
+                }
+            }
+
+            draw() {
+                // Gambar stickman
+                ctx.fillStyle = this.color;
+                
+                // Tubuh
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // Kepala
+                ctx.beginPath();
+                ctx.arc(this.x + this.width/2, this.y - 10, 15, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Mata
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(this.x + this.width/2 + (this.facing === 'right' ? 5 : -5), this.y - 12, 4, 0, Math.PI * 2);
+                ctx.arc(this.x + this.width/2 + (this.facing === 'right' ? -5 : 5), this.y - 12, 4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Tangan dan kaki
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x - 5, this.y + 10, 5, 25); // Tangan kiri
+                ctx.fillRect(this.x + this.width, this.y + 10, 5, 25); // Tangan kanan
+                ctx.fillRect(this.x + 5, this.y + this.height, 5, 25); // Kaki kiri
+                ctx.fillRect(this.x + this.width - 10, this.y + this.height, 5, 25); // Kaki kanan
+                
+                // Efek serangan
+                if (this.isAttacking) {
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+                    if (this.facing === 'right') {
+                        ctx.fillRect(this.x + this.width, this.y, 40, this.height);
+                    } else {
+                        ctx.fillRect(this.x - 40, this.y, 40, this.height);
+                    }
+                }
+            }
+
+            checkCollision(obj1, obj2) {
+                return obj1.x < obj2.x + obj2.width &&
+                       obj1.x + obj1.width > obj2.x &&
+                       obj1.y < obj2.y + obj2.height &&
+                       obj1.y + obj1.height > obj2.y;
+            }
+        }
+
+        // Kelas Enemy
+        class Enemy {
+            constructor(x, y, width, height, speed, health) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.speed = speed;
+                this.health = health;
+                this.maxHealth = health;
+                this.direction = 1;
+                this.color = '#e74c3c';
+            }
+
+            update() {
+                // Gerakan musuh
+                this.x += this.speed * this.direction;
+                
+                // Balik arah jika mencapai ujung platform
+                let onPlatform = false;
+                platforms.forEach(platform => {
+                    if (this.y + this.height <= platform.y + 5 && 
+                        this.y + this.height >= platform.y &&
+                        this.x + this.width > platform.x && 
+                        this.x < platform.x + platform.width) {
+                        onPlatform = true;
+                        
+                        if (this.x <= platform.x || this.x + this.width >= platform.x + platform.width) {
+                            this.direction *= -1;
+                        }
+                    }
+                });
+                
+                // Jika tidak di platform, balik arah
+                if (!onPlatform) {
+                    this.direction *= -1;
+                }
+            }
+
+            draw() {
+                // Gambar musuh
+                ctx.fillStyle = this.color;
+                
+                // Tubuh
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // Kepala
+                ctx.beginPath();
+                ctx.arc(this.x + this.width/2, this.y - 10, 15, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Mata
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(this.x + this.width/2 - 5, this.y - 12, 4, 0, Math.PI * 2);
+                ctx.arc(this.x + this.width/2 + 5, this.y - 12, 4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Tangan dan kaki
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x - 5, this.y + 10, 5, 25);
+                ctx.fillRect(this.x + this.width, this.y + 10, 5, 25);
+                ctx.fillRect(this.x + 5, this.y + this.height, 5, 25);
+                ctx.fillRect(this.x + this.width - 10, this.y + this.height, 5, 25);
+                
+                // Bar kesehatan
+                const healthPercent = this.health / this.maxHealth;
+                ctx.fillStyle = 'red';
+                ctx.fillRect(this.x, this.y - 20, this.width, 5);
+                ctx.fillStyle = 'green';
+                ctx.fillRect(this.x, this.y - 20, this.width * healthPercent, 5);
+            }
+
+            takeDamage(damage) {
+                this.health -= damage;
+            }
+        }
+
+        // Kelas Coin
+        class Coin {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.width = 20;
+                this.height = 20;
+                this.animation = 0;
+            }
+
+            update() {
+                this.animation += 0.1;
+            }
+
+            draw() {
+                ctx.fillStyle = 'gold';
+                ctx.beginPath();
+                ctx.arc(this.x + this.width/2, this.y + this.height/2, 10, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Efek berkilau
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(
+                    this.x + this.width/2 + Math.cos(this.animation) * 3, 
+                    this.y + this.height/2 + Math.sin(this.animation) * 3, 
+                    3, 0, Math.PI * 2
+                );
+                ctx.fill();
+            }
+        }
+
+        // Kelas Platform
+        class Platform {
+            constructor(x, y, width, height) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.color = '#2ecc71';
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // Tambahkan tekstur pada platform
+                ctx.fillStyle = '#27ae60';
+                for (let i = 0; i < this.width; i += 20) {
+                    ctx.fillRect(this.x + i, this.y, 10, 5);
+                }
+            }
+        }
+
+        // Kelas BackgroundElement
+        class BackgroundElement {
+            constructor(x, y, width, height, color, speed) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.color = color;
+                this.speed = speed;
+            }
+
+            update() {
+                this.x -= this.speed;
+                if (this.x + this.width < 0) {
+                    this.x = canvas.width;
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+            }
+        }
+
+        // Inisialisasi player
+        let player = new Player();
+
+        // Fungsi untuk memuat level
+        function loadLevel(level) {
+            gameObjects = [];
+            platforms = [];
+            enemies = [];
+            coins = [];
+            backgroundElements = [];
+            
+            const config = levelConfigs[level];
+            
+            // Buat platform
+            config.platforms.forEach(plat => {
+                platforms.push(new Platform(plat.x, plat.y, plat.width, plat.height));
+            });
+            
+            // Buat musuh
+            config.enemies.forEach(enemy => {
+                enemies.push(new Enemy(enemy.x, enemy.y, enemy.width, enemy.height, enemy.speed, enemy.health));
+            });
+            
+            // Buat koin
+            config.coins.forEach(coin => {
+                coins.push(new Coin(coin.x, coin.y));
+            });
+            
+            // Buat elemen latar belakang
+            for (let i = 0; i < 10; i++) {
+                const size = Math.random() * 20 + 10;
+                backgroundElements.push(new BackgroundElement(
+                    Math.random() * canvas.width,
+                    Math.random() * canvas.height,
+                    size,
+                    size,
+                    `rgba(255, 255, 255, ${Math.random() * 0.3})`,
+                    Math.random() * 0.5 + 0.1
+                ));
+            }
+            
+            // Reset posisi player
+            player.x = 50;
+            player.y = 300;
+            player.velocityY = 0;
+            player.velocityX = 0;
+            
+            // Update UI
+            levelDisplay.textContent = level;
+            levelNumber.textContent = level;
+        }
+
+        // Fungsi untuk menggambar goal
+        function drawGoal() {
+            const goal = levelConfigs[currentLevel].goal;
+            ctx.fillStyle = '#9b59b6';
+            ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
+            
+            // Efek berkedip
+            ctx.fillStyle = 'white';
+            ctx.fillRect(
+                goal.x + 10, 
+                goal.y + 10, 
+                goal.width - 20, 
+                goal.height - 20
+            );
+        }
+
+        // Fungsi update game
+        function update() {
+            if (!gameActive) return;
+            
+            // Update player
+            player.update();
+            
+            // Update musuh
+            enemies.forEach(enemy => enemy.update());
+            
+            // Update koin
+            coins.forEach(coin => coin.update());
+            
+            // Update elemen latar belakang
+            backgroundElements.forEach(elem => elem.update());
+            
+            // Cek game over
+            if (playerHealth <= 0) {
+                gameOver();
+            }
+        }
+
+        // Fungsi render game
+        function render() {
+            // Bersihkan canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Gambar latar belakang
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Gambar elemen latar belakang
+            backgroundElements.forEach(elem => elem.draw());
+            
+            // Gambar platform
+            platforms.forEach(platform => platform.draw());
+            
+            // Gambar goal
+            drawGoal();
+            
+            // Gambar koin
+            coins.forEach(coin => coin.draw());
+            
+            // Gambar musuh
+            enemies.forEach(enemy => enemy.draw());
+            
+            // Gambar player
+            player.draw();
+        }
+
+        // Game loop
+        function gameLoop() {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event listeners untuk keyboard
+        window.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        // Event listeners untuk tombol kontrol di layar
+        function setupButtonListeners(button) {
+            button.addEventListener('mousedown', () => {
+                button.pressed = true;
+            });
+            
+            button.addEventListener('mouseup', () => {
+                button.pressed = false;
+            });
+            
+            button.addEventListener('touchstart', (e) => {
+                button.pressed = true;
+                e.preventDefault();
+            });
+            
+            button.addEventListener('touchend', () => {
+                button.pressed = false;
+            });
+        }
+
+        setupButtonListeners(leftBtn);
+        setupButtonListeners(rightBtn);
+        setupButtonListeners(jumpBtn);
+        setupButtonListeners(attackBtn);
+
+        // Fungsi untuk memulai game
+        function startGame() {
+            gameActive = true;
+            startScreen.style.display = 'none';
+            playerHealth = 100;
+            score = 0;
+            currentLevel = 1;
+            updateScore();
+            updateHealth();
+            loadLevel(currentLevel);
+        }
+
+        // Fungsi ketika level selesai
+        function completeLevel() {
+            gameActive = false;
+            completeScore.textContent = score;
+            levelCompleteScreen.style.display = 'flex';
+        }
+
+        // Fungsi ketika game over
+        function gameOver() {
+            gameActive = false;
+            finalScore.textContent = score;
+            gameOverScreen.style.display = 'flex';
+        }
+
+        // Fungsi untuk memuat level berikutnya
+        function nextLevel() {
+            currentLevel++;
+            if (currentLevel > Object.keys(levelConfigs).length) {
+                // Jika semua level selesai, kembali ke level 1
+                currentLevel = 1;
+                score = 0;
+            }
+            
+            levelCompleteScreen.style.display = 'none';
+            gameActive = true;
+            loadLevel(currentLevel);
+        }
+
+        // Fungsi untuk restart game
+        function restartGame() {
+            gameOverScreen.style.display = 'none';
+            startGame();
+        }
+
+        // Update UI score
+        function updateScore() {
+            scoreDisplay.textContent = score;
+        }
+
+        // Update UI health
+        function updateHealth() {
+            healthFill.style.width = `${playerHealth}%`;
+        }
+
+        // Event listeners untuk tombol
+        startButton.addEventListener('click', startGame);
+        nextLevelButton.addEventListener('click', nextLevel);
+        restartButton.addEventListener('click', restartGame);
+
+        // Handle resize window
+        window.addEventListener('resize', () => {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        });
+
+        // Mulai game loop
+        gameLoop();
+    </script>
+</body>
+</html>
