@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProtectorStickman</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #fff;
+            color: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .game-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            border: 2px solid #000;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 500px;
+            background-color: #fff;
+            cursor: crosshair;
+        }
+
+        .ui-container {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 20px;
+        }
+
+        .stats {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .stat-item {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            background-color: #fff;
+            color: #000;
+            border: 2px solid #000;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background-color: #000;
+            color: #fff;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .instructions {
+            max-width: 800px;
+            text-align: center;
+            margin-top: 20px;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 768px) {
+            .ui-container {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .stats {
+                flex-direction: row;
+                justify-content: space-between;
+            }
+            
+            .controls {
+                justify-content: center;
+            }
+            
+            #gameCanvas {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>ProtectorStickman</h1>
+    
+    <div class="ui-container">
+        <div class="stats">
+            <div class="stat-item">Level: <span id="level">1</span></div>
+            <div class="stat-item">Hidup: <span id="lives">3</span></div>
+            <div class="stat-item">Energi: <span id="energy">10</span></div>
+        </div>
+        
+        <div class="controls">
+            <button id="resetBtn">Reset</button>
+            <button id="hintBtn">Hint</button>
+            <button id="fastForwardBtn">Fast Forward</button>
+        </div>
+    </div>
+    
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+    
+    <div class="instructions">
+        <p>Gambar garis atau bentuk untuk melindungi Stickman dari rintangan!</p>
+        <p>Gunakan mouse/touch untuk menggambar. Tekan tombol Hint untuk saran.</p>
+    </div>
+
+    <script>
+        // Inisialisasi canvas
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // UI Elements
+        const levelElement = document.getElementById('level');
+        const livesElement = document.getElementById('lives');
+        const energyElement = document.getElementById('energy');
+        const resetBtn = document.getElementById('resetBtn');
+        const hintBtn = document.getElementById('hintBtn');
+        const fastForwardBtn = document.getElementById('fastForwardBtn');
+        
+        // Game state
+        let gameState = {
+            level: 1,
+            lives: 3,
+            energy: 10,
+            isDrawing: false,
+            protections: [],
+            obstacles: [],
+            gameSpeed: 1,
+            isFastForward: false,
+            stickman: {
+                x: 0,
+                y: 0,
+                width: 30,
+                height: 50
+            },
+            lastTime: 0,
+            hintActive: false
+        };
+        
+        // Inisialisasi ukuran canvas
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            
+            // Posisikan stickman di tengah
+            gameState.stickman.x = canvas.width / 2;
+            gameState.stickman.y = canvas.height / 2;
+        }
+        
+        // Gambar stickman
+        function drawStickman() {
+            const { x, y, width, height } = gameState.stickman;
+            
+            ctx.beginPath();
+            // Kepala
+            ctx.arc(x, y - height/2, 10, 0, Math.PI * 2);
+            // Badan
+            ctx.moveTo(x, y - height/2 + 10);
+            ctx.lineTo(x, y + height/2 - 10);
+            // Tangan
+            ctx.moveTo(x - width/2, y);
+            ctx.lineTo(x + width/2, y);
+            // Kaki
+            ctx.moveTo(x, y + height/2 - 10);
+            ctx.lineTo(x - width/3, y + height/2);
+            ctx.moveTo(x, y + height/2 - 10);
+            ctx.lineTo(x + width/3, y + height/2);
+            
+            ctx.stroke();
+        }
+        
+        // Gambar perlindungan
+        function drawProtections() {
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            
+            gameState.protections.forEach(protection => {
+                ctx.beginPath();
+                ctx.moveTo(protection.startX, protection.startY);
+                ctx.lineTo(protection.endX, protection.endY);
+                ctx.stroke();
+            });
+            
+            // Reset ke default
+            ctx.lineWidth = 1;
+        }
+        
+        // Gambar rintangan
+        function drawObstacles() {
+            ctx.fillStyle = '#000';
+            
+            gameState.obstacles.forEach(obstacle => {
+                if (obstacle.type === 'spike') {
+                    // Gambar spike
+                    ctx.beginPath();
+                    ctx.moveTo(obstacle.x, obstacle.y);
+                    ctx.lineTo(obstacle.x - 10, obstacle.y + 20);
+                    ctx.lineTo(obstacle.x + 10, obstacle.y + 20);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (obstacle.type === 'ball') {
+                    // Gambar bola
+                    ctx.beginPath();
+                    ctx.arc(obstacle.x, obstacle.y, obstacle.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+        }
+        
+        // Update rintangan
+        function updateObstacles(deltaTime) {
+            const speed = gameState.gameSpeed * (gameState.isFastForward ? 3 : 1);
+            
+            for (let i = gameState.obstacles.length - 1; i >= 0; i--) {
+                const obstacle = gameState.obstacles[i];
+                
+                // Update posisi berdasarkan arah
+                obstacle.x += obstacle.dx * speed * deltaTime / 16;
+                obstacle.y += obstacle.dy * speed * deltaTime / 16;
+                
+                // Cek tabrakan dengan perlindungan
+                let collided = false;
+                for (const protection of gameState.protections) {
+                    if (lineCircleIntersection(
+                        protection.startX, protection.startY, 
+                        protection.endX, protection.endY,
+                        obstacle.x, obstacle.y, obstacle.radius
+                    )) {
+                        collided = true;
+                        break;
+                    }
+                }
+                
+                // Cek tabrakan dengan stickman
+                const dx = obstacle.x - gameState.stickman.x;
+                const dy = obstacle.y - gameState.stickman.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < obstacle.radius + 15 && !collided) {
+                    // Stickman terkena rintangan
+                    gameState.lives--;
+                    livesElement.textContent = gameState.lives;
+                    gameState.obstacles.splice(i, 1);
+                    
+                    if (gameState.lives <= 0) {
+                        alert("Game Over! Stickman Anda telah kalah.");
+                        resetGame();
+                    }
+                    continue;
+                }
+                
+                // Hapus rintangan jika keluar layar
+                if (obstacle.x < -50 || obstacle.x > canvas.width + 50 || 
+                    obstacle.y < -50 || obstacle.y > canvas.height + 50) {
+                    gameState.obstacles.splice(i, 1);
+                }
+            }
+            
+            // Tambah rintangan baru secara periodik
+            if (Math.random() < 0.02 * gameState.level * speed) {
+                createObstacle();
+            }
+        }
+        
+        // Buat rintangan baru
+        function createObstacle() {
+            const types = ['spike', 'ball'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            
+            let x, y, dx, dy;
+            const side = Math.floor(Math.random() * 4); // 0: atas, 1: kanan, 2: bawah, 3: kiri
+            
+            if (side === 0) { // Atas
+                x = Math.random() * canvas.width;
+                y = -20;
+                dx = (gameState.stickman.x - x) * 0.01;
+                dy = (gameState.stickman.y - y) * 0.01;
+            } else if (side === 1) { // Kanan
+                x = canvas.width + 20;
+                y = Math.random() * canvas.height;
+                dx = (gameState.stickman.x - x) * 0.01;
+                dy = (gameState.stickman.y - y) * 0.01;
+            } else if (side === 2) { // Bawah
+                x = Math.random() * canvas.width;
+                y = canvas.height + 20;
+                dx = (gameState.stickman.x - x) * 0.01;
+                dy = (gameState.stickman.y - y) * 0.01;
+            } else { // Kiri
+                x = -20;
+                y = Math.random() * canvas.height;
+                dx = (gameState.stickman.x - x) * 0.01;
+                dy = (gameState.stickman.y - y) * 0.01;
+            }
+            
+            // Normalize direction vector
+            const length = Math.sqrt(dx * dx + dy * dy);
+            dx /= length;
+            dy /= length;
+            
+            gameState.obstacles.push({
+                type,
+                x,
+                y,
+                dx: dx * (2 + gameState.level * 0.2),
+                dy: dy * (2 + gameState.level * 0.2),
+                radius: type === 'ball' ? 15 : 10
+            });
+        }
+        
+        // Deteksi tabrakan garis dengan lingkaran
+        function lineCircleIntersection(x1, y1, x2, y2, cx, cy, r) {
+            // Vektor garis
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            
+            // Vektor dari titik awal garis ke pusat lingkaran
+            const fx = x1 - cx;
+            const fy = y1 - cy;
+            
+            // Koefisien persamaan kuadrat
+            const a = dx * dx + dy * dy;
+            const b = 2 * (fx * dx + fy * dy);
+            const c = fx * fx + fy * fy - r * r;
+            
+            // Diskriminan
+            const discriminant = b * b - 4 * a * c;
+            
+            if (discriminant < 0) {
+                return false;
+            }
+            
+            // Hitung titik potong
+            const t1 = (-b - Math.sqrt(discriminant)) / (2 * a);
+            const t2 = (-b + Math.sqrt(discriminant)) / (2 * a);
+            
+            // Cek apakah titik potong ada di segmen garis
+            return (t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1);
+        }
+        
+        // Tampilkan hint
+        function showHint() {
+            if (gameState.energy < 2) {
+                alert("Energi tidak cukup untuk menggunakan hint!");
+                return;
+            }
+            
+            gameState.hintActive = true;
+            gameState.energy -= 2;
+            energyElement.textContent = gameState.energy;
+            
+            // Hilangkan hint setelah 2 detik
+            setTimeout(() => {
+                gameState.hintActive = false;
+            }, 2000);
+        }
+        
+        // Gambar hint
+        function drawHint() {
+            if (!gameState.hintActive) return;
+            
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.lineWidth = 5;
+            ctx.setLineDash([5, 5]);
+            
+            // Gambar beberapa garis sebagai saran
+            const hintLines = [
+                { 
+                    startX: gameState.stickman.x - 50, 
+                    startY: gameState.stickman.y - 50, 
+                    endX: gameState.stickman.x + 50, 
+                    endY: gameState.stickman.y - 50 
+                },
+                { 
+                    startX: gameState.stickman.x - 50, 
+                    startY: gameState.stickman.y + 50, 
+                    endX: gameState.stickman.x + 50, 
+                    endY: gameState.stickman.y + 50 
+                },
+                { 
+                    startX: gameState.stickman.x - 50, 
+                    startY: gameState.stickman.y - 50, 
+                    endX: gameState.stickman.x - 50, 
+                    endY: gameState.stickman.y + 50 
+                },
+                { 
+                    startX: gameState.stickman.x + 50, 
+                    startY: gameState.stickman.y - 50, 
+                    endX: gameState.stickman.x + 50, 
+                    endY: gameState.stickman.y + 50 
+                }
+            ];
+            
+            hintLines.forEach(line => {
+                ctx.beginPath();
+                ctx.moveTo(line.startX, line.startY);
+                ctx.lineTo(line.endX, line.endY);
+                ctx.stroke();
+            });
+            
+            // Reset ke default
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([]);
+        }
+        
+        // Cek level up
+        function checkLevelUp() {
+            // Level up setiap 10 detik bertahan
+            if (gameState.obstacles.length === 0 && 
+                Math.random() < 0.01 && 
+                gameState.obstacles.filter(o => 
+                    Math.abs(o.x - gameState.stickman.x) < 100 || 
+                    Math.abs(o.y - gameState.stickman.y) < 100
+                ).length === 0) {
+                
+                gameState.level++;
+                levelElement.textContent = gameState.level;
+                gameState.energy += 5;
+                energyElement.textContent = gameState.energy;
+                
+                alert(`Level Up! Sekarang level ${gameState.level}`);
+            }
+        }
+        
+        // Reset game
+        function resetGame() {
+            gameState.level = 1;
+            gameState.lives = 3;
+            gameState.energy = 10;
+            gameState.protections = [];
+            gameState.obstacles = [];
+            gameState.isFastForward = false;
+            
+            levelElement.textContent = gameState.level;
+            livesElement.textContent = gameState.lives;
+            energyElement.textContent = gameState.energy;
+            
+            fastForwardBtn.textContent = "Fast Forward";
+        }
+        
+        // Game loop
+        function gameLoop(timestamp) {
+            const deltaTime = timestamp - gameState.lastTime;
+            gameState.lastTime = timestamp;
+            
+            // Bersihkan canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Update dan gambar elemen game
+            updateObstacles(deltaTime);
+            drawProtections();
+            drawObstacles();
+            drawStickman();
+            drawHint();
+            
+            // Cek level up
+            checkLevelUp();
+            
+            // Lanjutkan game loop
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Event listeners untuk menggambar
+        let currentProtection = null;
+        
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+        
+        // Touch events untuk mobile
+        canvas.addEventListener('touchstart', handleTouchStart);
+        canvas.addEventListener('touchmove', handleTouchMove);
+        canvas.addEventListener('touchend', handleTouchEnd);
+        
+        function startDrawing(e) {
+            gameState.isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            currentProtection = {
+                startX: x,
+                startY: y,
+                endX: x,
+                endY: y
+            };
+            
+            gameState.protections.push(currentProtection);
+        }
+        
+        function draw(e) {
+            if (!gameState.isDrawing) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            currentProtection.endX = x;
+            currentProtection.endY = y;
+        }
+        
+        function stopDrawing() {
+            gameState.isDrawing = false;
+            currentProtection = null;
+        }
+        
+        // Touch event handlers
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousedown', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        }
+        
+        function handleTouchMove(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        }
+        
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            const mouseEvent = new MouseEvent('mouseup', {});
+            canvas.dispatchEvent(mouseEvent);
+        }
+        
+        // Event listeners untuk tombol
+        resetBtn.addEventListener('click', resetGame);
+        
+        hintBtn.addEventListener('click', showHint);
+        
+        fastForwardBtn.addEventListener('click', () => {
+            gameState.isFastForward = !gameState.isFastForward;
+            fastForwardBtn.textContent = gameState.isFastForward ? "Normal Speed" : "Fast Forward";
+        });
+        
+        // Inisialisasi game
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            gameState.lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        });
+        
+        window.addEventListener('resize', resizeCanvas);
+    </script>
+</body>
+</html>
